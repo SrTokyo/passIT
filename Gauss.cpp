@@ -1,101 +1,98 @@
-#include <iostream>
-#include <math.h>
-
-main( )
-{
-    int n, i, j, k;
-    float a[100][100], b[100][100], c[100], det;
-
-cout << endl << endl << "\n\t\t\t UTILIZANDO EL METODO DE ELIMINACION DE GAUSS " <<endl;
-cout << " \t " << endl << endl  <<endl;
-cout << " INTRODUCE EL NUMERO DE ECUACIONES ";
-cin >> n;
-cout << endl << endl;
-cout << " INTRODUCE LOS COEFICIENTES DE LA MATRIZ A " << endl;
-
-for(i=1;i<=n;i++)  // carga los coefientes de a
-      {
-          for(j=1;j<=n;j++)
-             {
-                cout<<"\n A["<<i<<"]["<<j<<"]"<<" = ";
-                cin>>a[i][j];
-             }
-          cout<<endl;
-      }
-      
-    cout<<" INTRODUCE EL VECTOR INDEPENDIENTE b  "<<endl;
-    for(j=1;j<=n;j++) //carga vector independiente
-      {
-            cout<<" \n b["<<i<<"]["<<j<<"]"<< " = ";
-            cin>>b[j];
-      }
-    //muestra la matriz a aumenta con sus valores independientes
-  
-    cout << " \n\t LA MATRIZ INGRESADA ES: " ;
-    for(i=1;i<=n;i++)
-       {
-           cout << "\n\n\t " ;
-           for(j=1;j<=n;j++)
-             {
-                cout<<a[i][j]<<"\t ";
-             }
-           cout << " | " << b[i];
-       }
-    //calcula el determinante de a // <<<<< INICIA EL METODO DE GAUSS >>>>>
-  
-    i=1;
-    det=1; //paso uno
-    for(i=1; i<=n-1; i=i+1)
-       {
-            det=det*a[i][i];
-            if(det==0)
-               {
-                    cout<<"\n\n Hay un cero en la diagonal principal...";
-                    cout<<" \n\n Su determinante es " << det << endl<<endl;
-                    system("PAUSE");
-               }
-            for(k=i+1;k<=n;k=k+1)
-               {
-                   for(j=i+1;j<=n;j=j+1)
-                       {
-                          a[k][j]=a[k][j]-(a[k][i]*a[i][j])/a[i][i];
-                       }
-                   b[k]=b[k]-(a[k][i]*b[i])/a[i][i];
+ #include<stdio.h>
+        #include <stdlib.h>
+        #include <time.h>
+        #include <mpi.h>
+        int main(int argc, char **argv)
+    {
+        MPI_Init(&argc, &argv);
+        int i,j,k;
+        int map[500];
+        double A[500][500],b[500],c[500],x[500],sum=0.0;
+        double range=1.0;
+        int n=3;
+        int rank, nprocs;
+        clock_t begin1, end1, begin2, end2;
+        MPI_Status status;    
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);   
+        MPI_Comm_size(MPI_COMM_WORLD, &nprocs);   
+        if (rank==0)
+        {
+            for (i=0; i<n; i++)
+            {
+                for (j=0; j<n; j++)
+                    A[i][j]=range*(1.0-2.0*(double)rand()/RAND_MAX);
+                b[i]=range*(1.0-2.0*(double)rand()/RAND_MAX);
+            }
+            printf("\n Matrix A (generated randomly):\n");
+            for (i=0; i<n; i++)
+            {
+                for (j=0; j<n; j++)
+                    printf("%9.6lf ",A[i][j]);
+                printf("\n");
+            }
+            printf("\n Vector b (generated randomly):\n");
+            for (i=0; i<n; i++)
+                printf("%9.6lf ",b[i]);
+            printf("\n\n");
+        }    
+        begin1 =clock(); 
+        MPI_Bcast (&A[0][0],500*500,MPI_DOUBLE,0,MPI_COMM_WORLD);
+        MPI_Bcast (b,n,MPI_DOUBLE,0,MPI_COMM_WORLD);       
+        for(i=0; i<n; i++)
+        {
+            map[i]= i % nprocs;
+        }     
+        for(k=0;k<n;k++)
+        {
+        MPI_Bcast (&A[k][k],n-k,MPI_DOUBLE,map[k],MPI_COMM_WORLD);
+        MPI_Bcast (&b[k],1,MPI_DOUBLE,map[k],MPI_COMM_WORLD);
+        for(i= k+1; i<n; i++) 
+        {
+            if(map[i] == rank)
+            {
+                c[i]=A[i][k]/A[k][k];
+            }
+        }               
+        for(i= k+1; i<n; i++) 
+        {       
+            if(map[i] == rank)
+            {
+                for(j=0;j<n;j++)
+                {
+                    A[i][j]=A[i][j]-( c[i]*A[k][j] );
                 }
-       } //fin del for
-      
-    det=det*a[n][n];
-  
-    if(det==0)
-       {
-            cout<<"Hay un cero en la diagonal principal...";
-            cout<<" Su determinante es : " << det<< endl<<endl;
-            system("PAUSE");
-       }
-      
-    x[n]=b[n]/a[n][n];
-  
-    for(i=n-1; i>=1; i=i-1)
-       {
-            x[i]=b[i];
-            for(j=i+1; j<=n; j=j+1)
-                 {
-                    x[i]=x[i]-a[i][j]*x[j];
-                 }
-            x[i]=x[i]/a[i][i];
+                b[i]=b[i]-( c[i]*b[k] );
+            }
         }
-      
-    cout << " \n\n\n\n\t\t\t SOLUCIONES " ;
-    cout<<"\n\n\n  El determinante de A es ==  "<<det;
-    cout<<"\n\n Los valores del vector Solucion son :  "<<endl;
-  
-    for(j=1; j<=n; j++)
-       {
-            cout<<"\n\t x["<<j<<"]"<<"=>"<<x[j];cout<<endl;
-       }
-      
-    cout << endl<< endl;
-    system("PAUSE");
-    return EXIT_SUCCESS;
-  
+    }
+    end1 = clock();
+    begin2 =clock();
+
+    if (rank==0)
+    { 
+        x[n-1]=b[n-1]/A[n-1][n-1];
+        for(i=n-2;i>=0;i--)
+        {
+            sum=0;
+
+            for(j=i+1;j<n;j++)
+            {
+                sum=sum+A[i][j]*x[j];
+            }
+            x[i]=(b[i]-sum)/A[i][i];
+        }
+        end2 = clock();
+    }
+    if (rank==0)
+    { 
+        printf("\nThe solution is:");
+        for(i=0;i<n;i++)
+        {
+            printf("\nx%d=%f\t",i,x[i]);
+        }
+        printf("\n\nLU decomposition time: %f", (double)(end1 - begin1) / CLOCKS_PER_SEC);
+        printf("\nBack substitution time: %f\n", (double)(end2 - begin2) / CLOCKS_PER_SEC);
+    }
+    MPI_Finalize();
+    return(0);
 }
